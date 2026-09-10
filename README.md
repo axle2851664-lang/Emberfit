@@ -57,24 +57,27 @@ no body comparisons. The nutrition side is for understanding what you ate.
 Requires **Node 20 or newer** (`node --version` to check; get it from
 [nodejs.org](https://nodejs.org)).
 
-The same three commands work in PowerShell, Command Prompt, Terminal and any
+The same two commands work in PowerShell, Command Prompt, Terminal and any
 shell:
 
 ```bash
 npm install
-npm run setup     # creates the SQLite database and seeds the exercise library
 npm run dev
 ```
 
 Then open **http://localhost:3000**.
 
-That's the whole setup. `.env` is created for you, and no API keys are
-required — every external service has a local fallback.
+That's the whole setup. The first `npm run dev` creates `.env`, sets up the
+database and seeds the exercise library for you — there's nothing else to run,
+and no API keys are required. (A `npm run setup` still exists if you'd rather
+do that step explicitly.)
 
 ### If something goes wrong
 
-**`npm run dev` exits immediately, or the page 500s**
-Run `npm run setup` first — it creates the database. Running it again is safe.
+**Pages load but break, or you see "The table `main.User` does not exist"**
+The database wasn't set up. `npm run dev` now handles this itself, so make sure
+you're on the latest version (`git pull`). Otherwise run `npm run setup` — it's
+always safe to run again.
 
 **"Unsupported engine" / "Cannot find module 'node:...'" / syntax errors during install**
 Node is too old. Next.js 15 and React 19 need Node 20+. Upgrade Node, then

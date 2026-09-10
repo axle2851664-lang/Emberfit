@@ -19,3 +19,4 @@ next-env.d.ts
 !/public/uploads/.gitkeep
 tsconfig.tsbuildinfo
 .tmp/
+.ensure-db-probe.mts
