@@ -66,10 +66,14 @@ function readExerciseCount() {
 
   // The probe has to live inside the project: Node resolves imports relative to
   // the file, so "@prisma/client" is unreachable from a system temp directory.
-  const file = join(root, ".ensure-db-probe.mts");
+  const name = ".ensure-db-probe.mts";
+  const file = join(root, name);
   try {
     writeFileSync(file, probe);
-    const out = run("npx", ["tsx", file]);
+    // Pass the *relative* name: on Windows these run through a shell, which
+    // does not quote arguments, so an absolute path under something like
+    // "C:\Users\First Last\" would be split at the space.
+    const out = run("npx", ["tsx", name]);
     const value = /EXERCISE_COUNT=(\d+|none)/.exec(out)?.[1];
     return value === "none" || value === undefined ? null : Number(value);
   } catch {

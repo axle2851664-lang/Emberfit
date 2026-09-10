@@ -57,10 +57,11 @@ no body comparisons. The nutrition side is for understanding what you ate.
 Requires **Node 20 or newer** (`node --version` to check; get it from
 [nodejs.org](https://nodejs.org)).
 
-The same two commands work in PowerShell, Command Prompt, Terminal and any
-shell:
+Download the project, then run two commands inside it:
 
 ```bash
+git clone https://github.com/axle2851664-lang/Emberfit.git
+cd Emberfit
 npm install
 npm run dev
 ```
@@ -73,6 +74,22 @@ and no API keys are required. (A `npm run setup` still exists if you'd rather
 do that step explicitly.)
 
 ### If something goes wrong
+
+**Windows: "npm.ps1 cannot be loaded because running scripts is disabled"**
+PowerShell blocks the `npm.ps1` shim by default. Node is fine — it's the shell
+refusing to run it. Two ways round it:
+
+- Use `npm.cmd` instead of `npm` (`npm.cmd install`, `npm.cmd run dev`). Nothing
+  on your system changes; PowerShell will run a `.cmd` quite happily.
+- Or allow local scripts permanently, once:
+  `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`
+  This is a real security setting — it lets locally-created scripts run for your
+  user account — so only do it if you're comfortable with that. Command Prompt
+  (`cmd.exe`) has no such restriction if you'd rather just use that.
+
+**"fatal: not a git repository"**
+You're not inside the project folder. `git clone` first (above), then `cd` into
+it. `cd` on its own tells you where you are.
 
 **Pages load but break, or you see "The table `main.User` does not exist"**
 The database wasn't set up. `npm run dev` now handles this itself, so make sure
