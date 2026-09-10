@@ -1,0 +1,362 @@
+// EmberFit data model.
+//
+// SQLite by default so the app runs with zero external services. The provider
+// can be swapped for postgresql without touching application code — everything
+// goes through the repository/service layer in src/lib.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// People
+// ---------------------------------------------------------------------------
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile   Profile?
+  exercises Exercise[]
+  workouts  Workout[]
+  sessions  WorkoutSession[]
+  meals     Meal[]
+  foods     Food[]
+  scans     FoodScan[]
+}
+
+model Profile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Free-form preference lists, stored as JSON strings (SQLite has no arrays).
+  interests        String @default("[]") // e.g. ["strength","mobility"]
+  preferredStyles  String @default("[]") // WorkoutStyle values
+  equipment        String @default("[]") // e.g. ["dumbbells","mat"]
+  sessionMinutes   Int    @default(40)
+  daysPerWeek      Int    @default(4)
+  experience       String @default("beginner") // beginner | intermediate | advanced
+
+  // Preferences, not tracked biometrics. We deliberately collect no weight,
+  // body measurements or calorie targets.
+  notifyWorkoutReminders Boolean @default(true)
+  notifyMealReminders    Boolean @default(false)
+  storePhotos            Boolean @default(false)
+  shareAnonymousStats    Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Training
+// ---------------------------------------------------------------------------
+
+model Exercise {
+  id           String  @id @default(cuid())
+  name         String
+  muscleGroups String  @default("[]") // JSON array of MuscleGroup values
+  equipment    String  @default("[]") // JSON array of equipment slugs
+  category     String  @default("strength") // strength | cardio | mobility | conditioning
+  instructions String?
+  isCustom     Boolean @default(false)
+
+  // Custom exercises belong to a user; built-ins have no owner.
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workoutExercises WorkoutExercise[]
+  sessionExercises SessionExercise[]
+
+  @@index([userId])
+  @@index([name])
+}
+
+model Workout {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  style       String  @default("strength") // WorkoutStyle
+  // A template can be started repeatedly; a plain workout is a one-off plan.
+  isTemplate  Boolean @default(false)
+  // Optional date this workout is planned for (start of day, UTC).
+  scheduledFor DateTime?
+  estimatedMinutes Int @default(40)
+  archivedAt  DateTime?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  exercises WorkoutExercise[]
+  sessions  WorkoutSession[]
+
+  @@index([userId, scheduledFor])
+}
+
+/// A planned exercise slot inside a workout (the prescription).
+model WorkoutExercise {
+  id        String @id @default(cuid())
+  workoutId String
+  workout   Workout @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+
+  exerciseId String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+
+  order        Int
+  targetSets   Int?
+  targetReps   Int?
+  targetSeconds Int?
+  restSeconds  Int?
+  notes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([workoutId, order])
+}
+
+/// One actual performance of a workout.
+model WorkoutSession {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Keep finished sessions in history even if the source workout is deleted.
+  workoutId String?
+  workout   Workout? @relation(fields: [workoutId], references: [id], onDelete: SetNull)
+
+  // Denormalised so history survives workout deletion.
+  name  String
+  style String @default("strength")
+
+  status      String    @default("in_progress") // in_progress | completed | abandoned
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  durationSeconds Int?
+  notes       String?
+  perceivedEffort Int? // 1-10, self-reported, optional
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  exercises SessionExercise[]
+
+  @@index([userId, startedAt])
+  @@index([userId, status])
+}
+
+model SessionExercise {
+  id        String @id @default(cuid())
+  sessionId String
+  session   WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  exerciseId String?
+  exercise   Exercise? @relation(fields: [exerciseId], references: [id], onDelete: SetNull)
+
+  // Denormalised for durable history.
+  name         String
+  muscleGroups String @default("[]")
+
+  order     Int
+  completed Boolean @default(false)
+  notes     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sets WorkoutSet[]
+
+  @@index([sessionId, order])
+}
+
+model WorkoutSet {
+  id                String @id @default(cuid())
+  sessionExerciseId String
+  sessionExercise   SessionExercise @relation(fields: [sessionExerciseId], references: [id], onDelete: Cascade)
+
+  order    Int
+  reps     Int?
+  seconds  Int?
+  weight   Float?
+  weightUnit String @default("kg")
+  completed Boolean @default(true)
+  notes    String?
+
+  createdAt DateTime @default(now())
+
+  @@index([sessionExerciseId, order])
+}
+
+// ---------------------------------------------------------------------------
+// Food & nutrition
+// ---------------------------------------------------------------------------
+
+/// A food the app knows about: from a provider (Open Food Facts), the bundled
+/// composition table, or created by the user.
+model Food {
+  id       String @id @default(cuid())
+  name     String
+  brand    String?
+  barcode  String?
+  /// Where this record came from: local | openfoodfacts | user | estimate
+  source   String @default("local")
+  /// Provider's own id, so we can refresh without duplicating.
+  sourceId String?
+
+  /// Nutrition is always stored per 100 g (or 100 ml for liquids) so different
+  /// portion sizes can be derived consistently.
+  basisUnit String @default("g")
+
+  servingLabel  String?
+  servingGrams  Float?
+
+  isVerified Boolean @default(false)
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  nutrition NutritionData?
+  mealItems MealItem[]
+
+  @@unique([source, sourceId])
+  @@index([barcode])
+  @@index([name])
+}
+
+/// Nutrient values per 100 g/ml of the parent food.
+model NutritionData {
+  id     String @id @default(cuid())
+  foodId String @unique
+  food   Food   @relation(fields: [foodId], references: [id], onDelete: Cascade)
+
+  calories Float @default(0)
+  protein  Float @default(0)
+  carbs    Float @default(0)
+  fat      Float @default(0)
+  fiber    Float?
+  sugar    Float?
+  satFat   Float?
+  sodium   Float? // mg
+  potassium Float? // mg
+  calcium  Float? // mg
+  iron     Float? // mg
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Meal {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name String
+  /// breakfast | lunch | dinner | snack
+  slot String @default("snack")
+  /// manual | barcode | photo | homemade | search
+  entryMethod String @default("manual")
+
+  eatenAt DateTime @default(now())
+  /// Local calendar day as YYYY-MM-DD, so day grouping is stable across zones.
+  dayKey  String
+
+  notes String?
+
+  /// Home-cooked meals: the recipe yields this many servings and the user ate
+  /// `servingsEaten` of them.
+  servings      Float @default(1)
+  servingsEaten Float @default(1)
+  cookingMethod String?
+
+  /// True when any part of the nutrition is inferred rather than measured.
+  isEstimate     Boolean @default(false)
+  estimateNote   String?
+  /// 0-1 confidence when the meal came from photo recognition.
+  confidence     Float?
+  photoPath      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items MealItem[]
+  scan  FoodScan?
+
+  @@index([userId, dayKey])
+  @@index([userId, eatenAt])
+}
+
+/// One component of a meal, with its own resolved nutrition snapshot so edits
+/// to the underlying Food never rewrite history.
+model MealItem {
+  id     String @id @default(cuid())
+  mealId String
+  meal   Meal   @relation(fields: [mealId], references: [id], onDelete: Cascade)
+
+  foodId String?
+  food   Food?   @relation(fields: [foodId], references: [id], onDelete: SetNull)
+
+  name     String
+  quantity Float  @default(100)
+  unit     String @default("g")
+  /// Quantity converted to grams, used for the nutrition maths.
+  grams    Float  @default(100)
+
+  /// Absolute values for this item (not per 100 g).
+  calories Float @default(0)
+  protein  Float @default(0)
+  carbs    Float @default(0)
+  fat      Float @default(0)
+  fiber    Float?
+  sugar    Float?
+  satFat   Float?
+  sodium   Float?
+
+  isEstimate Boolean @default(false)
+  confidence Float?
+  order      Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([mealId, order])
+}
+
+/// Audit record for a scan or photo analysis. Images are not stored by default.
+model FoodScan {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// barcode | qr | photo
+  kind      String
+  rawValue  String?
+  provider  String?
+  succeeded Boolean @default(false)
+  /// JSON payload of the candidate results shown to the user.
+  resultJson String?
+  message   String?
+
+  mealId String? @unique
+  meal   Meal?   @relation(fields: [mealId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}

@@ -1,0 +1,155 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------------------------------------------------------------------------
+   EmberFit theme.
+   One warm palette: cream ground, cocoa ink, caramel and ember for action.
+   --------------------------------------------------------------------------- */
+
+:root {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia,
+    ui-serif, serif;
+
+  --ground: #fbf7f1;
+  --ink: #2e2016;
+  --muted: #7a6455;
+  --line: rgba(94, 64, 43, 0.12);
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  background:
+    radial-gradient(120% 80% at 100% 0%, rgba(222, 146, 67, 0.09) 0%, transparent 55%),
+    radial-gradient(100% 70% at 0% 10%, rgba(176, 138, 99, 0.1) 0%, transparent 50%),
+    var(--ground);
+  background-attachment: fixed;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "kern", "liga";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Respect the notch and the home indicator on iOS. */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-cocoa-200/50 bg-white/80 shadow-soft backdrop-blur-sm;
+  }
+
+  .card-quiet {
+    @apply rounded-2xl border border-cocoa-200/40 bg-cream/60;
+  }
+
+  .field {
+    @apply w-full min-w-0 rounded-xl border border-cocoa-200 bg-white/90 px-3.5 py-2.5 text-[15px]
+           text-cocoa-900 placeholder:text-cocoa-400 outline-none transition
+           focus:border-caramel-400 focus:ring-4 focus:ring-caramel-300/20;
+  }
+
+  .label {
+    @apply mb-1.5 block text-[13px] font-semibold tracking-wide text-cocoa-700;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-cocoa-200/70 bg-cream
+           px-2.5 py-1 text-xs font-medium text-cocoa-700;
+  }
+
+  .pill-toggle {
+    @apply cursor-pointer select-none rounded-full border px-3.5 py-2 text-sm font-medium transition
+           active:scale-[0.97];
+  }
+
+  .pill-on {
+    @apply border-transparent bg-cocoa-800 text-cream shadow-soft;
+  }
+
+  .pill-off {
+    @apply border-cocoa-200 bg-white/70 text-cocoa-700 hover:border-cocoa-300 hover:bg-white;
+  }
+
+  .heading {
+    @apply font-display tracking-tight text-cocoa-900;
+  }
+}
+
+/* Skeleton shimmer used by loading states. */
+.shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.55),
+    transparent
+  );
+  animation: shimmer 1.6s infinite;
+}
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Number inputs: hide spinners, they fight with the compact set rows. */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Scrollbars, warmed up. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(94, 64, 43, 0.22);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(94, 64, 43, 0.35);
+  background-clip: padding-box;
+}
+
+/* Honour people who'd rather not have motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
