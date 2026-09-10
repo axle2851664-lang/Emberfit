@@ -9,8 +9,12 @@
     "lint": "next lint",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
-    "setup": "prisma db push && npm run db:seed",
-    "test": "tsx --test tests/selftest.ts"
+    "setup": "prisma generate && prisma db push && npm run db:seed",
+    "test": "tsx --test tests/selftest.ts",
+    "ensure-env": "node scripts/ensure-env.mjs",
+    "predev": "node scripts/ensure-env.mjs",
+    "prebuild": "node scripts/ensure-env.mjs",
+    "presetup": "node scripts/ensure-env.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.1.0",
@@ -32,5 +36,8 @@
     "tailwindcss": "^3.4.17",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }

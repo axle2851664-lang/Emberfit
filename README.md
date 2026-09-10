@@ -54,15 +54,50 @@ no body comparisons. The nutrition side is for understanding what you ate.
 
 ## Running it
 
+Requires **Node 20 or newer** (`node --version` to check; get it from
+[nodejs.org](https://nodejs.org)).
+
+The same three commands work in PowerShell, Command Prompt, Terminal and any
+shell:
+
 ```bash
 npm install
-cp .env.example .env
 npm run setup     # creates the SQLite database and seeds the exercise library
-npm run dev       # http://localhost:3000
+npm run dev
 ```
 
-That's the whole setup. No API keys are required — every external service has a
-local fallback.
+Then open **http://localhost:3000**.
+
+That's the whole setup. `.env` is created for you, and no API keys are
+required — every external service has a local fallback.
+
+### If something goes wrong
+
+**`npm run dev` exits immediately, or the page 500s**
+Run `npm run setup` first — it creates the database. Running it again is safe.
+
+**"Unsupported engine" / "Cannot find module 'node:...'" / syntax errors during install**
+Node is too old. Next.js 15 and React 19 need Node 20+. Upgrade Node, then
+delete `node_modules` and run `npm install` again.
+
+**"Port 3000 is already in use"**
+Use another port: `npm run dev -- -p 3001`.
+
+**"@prisma/client did not initialize yet"**
+Run `npm run setup`, which generates the client.
+
+**"DATABASE_URL is missing" / environment variable not found**
+`npm run setup` and `npm run dev` create `.env` automatically. If you deleted
+`.env.example` too, restore it from the repo — or create a `.env` file with the
+single line `DATABASE_URL="file:./dev.db"`.
+
+**Install fails behind a proxy or corporate network**
+Prisma downloads a query engine on install. If it's blocked, `npm install` will
+report the failed download — retry on an unrestricted connection.
+
+**Something else**
+Run `npm run build`. It typechecks the whole project and usually names the real
+problem in one line.
 
 ### Optional configuration
 
