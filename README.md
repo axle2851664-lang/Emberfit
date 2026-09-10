@@ -75,6 +75,12 @@ do that step explicitly.)
 
 ### If something goes wrong
 
+**It mentions https://nextjs.org/telemetry**
+That notice is Next.js's, not a problem — and you shouldn't see it here anyway:
+this project turns Next.js telemetry off by default, since the whole point is
+that your data stays on your machine. If you'd like to take part, see
+`scripts/next.mjs`.
+
 **Windows: "npm.ps1 cannot be loaded because running scripts is disabled"**
 PowerShell blocks the `npm.ps1` shim by default. Node is fine — it's the shell
 refusing to run it. Two ways round it:
