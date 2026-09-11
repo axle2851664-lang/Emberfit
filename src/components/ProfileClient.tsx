@@ -1,11 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { apiPut } from "@/lib/client";
+import { InstallSection } from "@/components/pwa/InstallSection";
+import {
+  notificationSupport,
+  requestNotificationPermission,
+  showLocalNotification,
+  type NotificationSupport,
+} from "@/lib/notifications";
 import {
   EQUIPMENT,
   EQUIPMENT_LABELS,
@@ -246,6 +253,8 @@ export function ProfileClient({
         </div>
       </Card>
 
+      <InstallSection />
+
       <Card>
         <CardHeader title="Notifications" />
         <div className="space-y-2.5">
@@ -262,9 +271,9 @@ export function ProfileClient({
             onChange={(v) => set("notifyMealReminders", v)}
           />
         </div>
-        <p className="mt-3 text-[11.5px] leading-relaxed text-cocoa-500">
-          These preferences are stored now; delivery depends on how you host the app.
-        </p>
+        <NotificationPermission
+          wanted={state.notifyWorkoutReminders || state.notifyMealReminders}
+        />
       </Card>
 
       <Card>
@@ -390,5 +399,100 @@ function ServiceRow({ label, ok, detail }: { label: string; ok: boolean; detail:
         <span className="mt-0.5 block text-[11.5px] leading-snug text-cocoa-600">{detail}</span>
       </span>
     </li>
+  );
+}
+
+/**
+ * The bridge between "I'd like reminders" and the browser actually being
+ * allowed to show them. Says plainly what these notifications can and can't do,
+ * rather than implying a push service that doesn't exist.
+ */
+function NotificationPermission({ wanted }: { wanted: boolean }) {
+  const toast = useToast();
+  const [support, setSupport] = useState<NotificationSupport | null>(null);
+  const [asking, setAsking] = useState(false);
+
+  useEffect(() => {
+    setSupport(notificationSupport());
+  }, []);
+
+  // Render nothing until we know, so the copy never flickers between states.
+  if (support === null) return null;
+
+  const ask = async () => {
+    setAsking(true);
+    const result = await requestNotificationPermission();
+    setSupport(result);
+    setAsking(false);
+
+    if (result === "granted") {
+      await showLocalNotification({
+        title: "Reminders are on",
+        body: "This is what one looks like. You can turn them off any time.",
+        url: "/profile",
+        tag: "emberfit-test",
+      });
+      toast.success("Notifications enabled");
+    } else if (result === "denied") {
+      toast.error(
+        "Your browser blocked notifications.",
+        "You can re-allow them in the site settings for this page.",
+      );
+    }
+  };
+
+  const explanation: Record<NotificationSupport, string> = {
+    unsupported: "This browser doesn't support notifications. Everything else works normally.",
+    insecure:
+      "Notifications need a secure page — they work on localhost and over https, but not over plain http on a network address.",
+    default: "Your browser hasn't been asked yet.",
+    granted: "Allowed. Reminders will appear while the app is installed or open.",
+    denied:
+      "Your browser is blocking notifications for this site. Re-allow them in its site settings, then come back.",
+  };
+
+  return (
+    <div className="mt-4 rounded-2xl bg-cocoa-50 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-[12.5px] font-semibold text-cocoa-800">
+            Browser permission: {support === "granted" ? "allowed" : support === "denied" ? "blocked" : "not set"}
+          </p>
+          <p className="mt-1 text-[12px] leading-relaxed text-cocoa-600">
+            {explanation[support]}
+          </p>
+        </div>
+
+        {support === "default" && wanted && (
+          <Button size="sm" variant="secondary" onClick={ask} loading={asking}>
+            Allow notifications
+          </Button>
+        )}
+
+        {support === "granted" && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() =>
+              showLocalNotification({
+                title: "EmberFit",
+                body: "Test reminder — everything's working.",
+                url: "/",
+                tag: "emberfit-test",
+              })
+            }
+          >
+            Send a test
+          </Button>
+        )}
+      </div>
+
+      <p className="mt-3 text-[11.5px] leading-relaxed text-cocoa-500">
+        These are reminders your own device schedules — EmberFit has no push server and
+        stores no device tokens, so nothing about you leaves your machine. The trade-off
+        is that they arrive when you have the app open or installed, rather than being
+        pushed to you days later.
+      </p>
+    </div>
   );
 }

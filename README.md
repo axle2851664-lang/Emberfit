@@ -169,6 +169,36 @@ Every route returns the same envelope (`{ ok: true, data }` or
 `{ ok: false, error: { code, message, hint } }`), so the client has exactly one
 error shape to render, and every failure carries a suggested next step.
 
+## Installing it as an app
+
+EmberFit is a progressive web app, so it installs to a phone, tablet or desktop
+without an app store.
+
+- **Android / Chrome / Edge** — the app offers to install itself, or use the
+  install icon in the address bar. There's also a permanent button on Profile.
+- **iPhone / iPad** — Safari has no install button: tap Share, then "Add to Home
+  Screen". The app shows these steps for you.
+
+Once installed it runs full screen with its own icon and launch screen, and the
+long-press menu jumps straight to starting a workout or scanning food.
+
+**What works without a connection.** The app shell, icons and the offline page
+are cached, so it opens rather than showing a browser error, and comes straight
+back the moment the server is reachable. Your actual pages are not cached: they
+are built from live data, and a saved copy could show yesterday's meals as
+today's, which is the kind of quiet wrongness the whole app is built to avoid.
+So a page you open with no connection tells you so plainly instead of guessing.
+
+Because the app normally runs on your own machine, "offline" here usually means
+the server isn't running rather than that the internet is down. The offline page
+checks whether the app actually answers (`/api/health`) rather than trusting the
+browser's online flag, which cannot tell the difference.
+
+**Notifications** are local reminders your own device schedules. There is no
+push server and no device token, so nothing about you leaves your machine — the
+trade-off is that they arrive while the app is installed or open, rather than
+being pushed days later. Turn them on under Profile → Notifications.
+
 ## Estimates
 
 Anything inferred is labelled as an estimate and can be edited before it's

@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#FBF7F1" />
+    <title>Offline — EmberFit</title>
+    <!--
+      Deliberately standalone: no framework, no external CSS, no JS bundle.
+
+      This is the page shown when there is no network, so it cannot depend on
+      anything the network would have to deliver. An earlier version was a
+      normal app route, and offline it failed to load its own JavaScript chunk
+      and rendered the error boundary instead. Everything here is inline.
+    -->
+    <style>
+      :root {
+        --ground: #fbf7f1;
+        --ink: #2e2016;
+        --muted: #7a6455;
+        --line: rgba(94, 64, 43, 0.14);
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; min-height: 100%; }
+      body {
+        background: var(--ground);
+        color: var(--ink);
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+      }
+      .wrap { max-width: 30rem; width: 100%; text-align: center; }
+      .mark {
+        width: 64px; height: 64px; margin: 0 auto 24px;
+        border-radius: 18px;
+        background: linear-gradient(135deg, #7a5537 0%, #d0762a 55%, #f4914e 100%);
+        display: flex; align-items: center; justify-content: center;
+      }
+      h1 {
+        font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, ui-serif, serif;
+        font-size: 1.6rem; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 10px;
+      }
+      p { font-size: 0.9rem; line-height: 1.6; color: var(--muted); margin: 0 0 10px; }
+      button {
+        margin-top: 18px;
+        font: inherit; font-weight: 600; font-size: 0.9rem;
+        color: #fff; border: 0; cursor: pointer;
+        padding: 12px 22px; border-radius: 14px;
+        background: linear-gradient(135deg, #7a5537 0%, #d0762a 55%, #f4914e 100%);
+        box-shadow: 0 1px 2px rgba(67, 46, 32, 0.06), 0 8px 24px -12px rgba(67, 46, 32, 0.3);
+        transition: transform 0.15s ease, filter 0.15s ease;
+      }
+      button:hover { filter: brightness(1.04); }
+      button:active { transform: scale(0.975); }
+      .status { min-height: 1.2rem; margin-top: 12px; font-size: 0.8rem; font-weight: 600; }
+      .online { color: #047857; }
+      .note {
+        margin-top: 32px; padding: 16px 18px; text-align: left;
+        background: rgba(94, 64, 43, 0.05);
+        border: 1px solid var(--line); border-radius: 16px;
+      }
+      .note strong { display: block; font-size: 0.8rem; color: var(--ink); margin-bottom: 6px; }
+      .note p { font-size: 0.78rem; margin: 0; }
+      @media (prefers-color-scheme: dark) {
+        :root { --ground: #2e2016; --ink: #fbf7f1; --muted: #c9ac8b; --line: rgba(251, 247, 241, 0.14); }
+        .note { background: rgba(251, 247, 241, 0.06); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="mark" aria-hidden="true">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none">
+          <path
+            d="M12 2s5 4.5 5 9a5 5 0 0 1-10 0c0-1.5.6-2.8 1.3-3.8C8.8 8.6 9 9.6 10 10c0-2.5.8-5.5 2-8z"
+            fill="#FBF7F1"
+          />
+        </svg>
+      </div>
+
+      <h1>You&rsquo;re offline</h1>
+      <p>
+        This page needs a connection to load. Everything you&rsquo;ve already logged is
+        safe — your workouts and meals live in your own database, not in this browser.
+      </p>
+
+      <button type="button" id="retry">Try again</button>
+      <div class="status" id="status" role="status"></div>
+
+      <div class="note">
+        <strong>Why doesn&rsquo;t everything work offline?</strong>
+        <p>
+          Your pages are built from live data. Showing a saved copy could mean
+          yesterday&rsquo;s meals appearing as today&rsquo;s — exactly the kind of quiet
+          wrongness this app tries to avoid. So it waits for the real thing.
+        </p>
+      </div>
+    </div>
+
+    <script>
+      // Inline and tiny, for the same reason as the CSS: nothing here may
+      // depend on a network request.
+      (function () {
+        var status = document.getElementById("status");
+        var retry = document.getElementById("retry");
+        var reachable = false;
+
+        function paint() {
+          if (reachable) {
+            status.textContent = "Connection restored.";
+            status.className = "status online";
+            retry.textContent = "You're back \u2014 reload";
+          } else {
+            status.textContent = "";
+            status.className = "status";
+            retry.textContent = "Try again";
+          }
+        }
+
+        // navigator.onLine only says whether there is *a* network, not whether
+        // this app answers. A dropped server or a captive-portal wifi both look
+        // "online" to it, so ask the app directly. /api/health is never served
+        // from cache, so a success here means genuinely reachable.
+        function probe() {
+          if (!navigator.onLine) {
+            reachable = false;
+            paint();
+            return;
+          }
+          fetch("/api/health", { cache: "no-store" })
+            .then(function (res) {
+              reachable = res.ok;
+              paint();
+            })
+            .catch(function () {
+              reachable = false;
+              paint();
+            });
+        }
+
+        retry.addEventListener("click", function () {
+          location.reload();
+        });
+        window.addEventListener("online", probe);
+        window.addEventListener("offline", probe);
+
+        probe();
+        // Keep checking quietly, so the page notices the moment it can come back.
+        setInterval(probe, 5000);
+      })();
+    </script>
+  </body>
+</html>
