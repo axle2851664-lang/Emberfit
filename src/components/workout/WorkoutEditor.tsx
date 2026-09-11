@@ -52,8 +52,7 @@ export function WorkoutEditor({
   const [rows, setRows] = useState<Row[]>(
     (workout?.exercises ?? []).map((e, i) => ({
       key: `row-${i}-${e.id}`,
-      // The workout row carries the WorkoutExercise id; match back to the exercise by name.
-      exerciseId: exercises.find((x) => x.name === e.name)?.id ?? "",
+      exerciseId: e.exerciseId,
       name: e.name,
       muscleGroups: e.muscleGroups,
       targetSets: e.targetSets,

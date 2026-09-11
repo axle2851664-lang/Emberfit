@@ -124,7 +124,12 @@ export const POST = handler(async (request: Request, { params }: Params) => {
       }
       const updated = await prisma.sessionExercise.update({
         where: { id: body.sessionExerciseId },
-        data: { notes: body.notes ?? null, completed: body.completed ?? undefined },
+        data: {
+          // Only touch what was actually sent: `?? null` would erase an
+          // existing note whenever the completed flag was toggled on its own.
+          ...(body.notes !== undefined ? { notes: body.notes } : {}),
+          ...(body.completed !== undefined ? { completed: body.completed } : {}),
+        },
       });
       return jsonOk(updated);
     }

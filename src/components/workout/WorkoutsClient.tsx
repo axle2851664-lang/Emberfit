@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { EmptyState } from "@/components/ui/States";
 import { useToast } from "@/components/ui/Toast";
-import { apiDelete } from "@/lib/client";
+import { apiDelete, apiPost } from "@/lib/client";
 import { useStartSession } from "./useStartSession";
 import { WORKOUT_STYLE_LABELS, type WorkoutStyle } from "@/lib/types";
 import { ExerciseLibrary } from "./ExerciseLibrary";
@@ -35,6 +35,7 @@ export function WorkoutsClient({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<PlainWorkout | null>(null);
   const { start, busyId, dialog: startDialog } = useStartSession();
+  const [planningId, setPlanningId] = useState<string | null>(null);
 
   // ?start=1 opens the picker straight from the nav / quick actions.
   useEffect(() => {
@@ -47,6 +48,22 @@ export function WorkoutsClient({
   const startWorkout = async (workoutId: string | null, workoutName?: string) => {
     const id = await start(workoutId, { workoutName });
     if (id) setStartOpen(false);
+  };
+
+  /** Copy a template into a dated workout, so it shows on today's dashboard. */
+  const planForToday = async (workout: PlainWorkout) => {
+    setPlanningId(workout.id);
+    const res = await apiPost<{ id: string }>(`/api/workouts/${workout.id}/instantiate`, {
+      scheduledFor: new Date().toISOString(),
+    });
+    setPlanningId(null);
+
+    if (!res.ok) {
+      toast.error(res.error.message, res.error.hint);
+      return;
+    }
+    toast.success(`"${workout.name}" is planned for today`, "It's on your dashboard now.");
+    router.refresh();
   };
 
   const remove = async () => {
@@ -151,7 +168,9 @@ export function WorkoutsClient({
               workout={workout}
               delay={i}
               busy={busyId === workout.id}
+              planning={planningId === workout.id}
               onStart={() => startWorkout(workout.id, workout.name)}
+              onPlanToday={workout.isTemplate ? () => planForToday(workout) : undefined}
               onDelete={() => setConfirmDelete(workout)}
             />
           ))}
@@ -242,13 +261,18 @@ function WorkoutCard({
   workout,
   delay,
   busy,
+  planning,
   onStart,
+  onPlanToday,
   onDelete,
 }: {
   workout: PlainWorkout;
   delay: number;
   busy: boolean;
+  planning?: boolean;
   onStart: () => void;
+  /** Templates only: copy it into a dated workout for today. */
+  onPlanToday?: () => void;
   onDelete: () => void;
 }) {
   return (
@@ -285,7 +309,17 @@ function WorkoutCard({
         )}
       </div>
 
-      <div className="mt-auto flex gap-2 pt-5">
+      {onPlanToday && (
+        <button
+          onClick={onPlanToday}
+          disabled={planning}
+          className="mt-4 w-full rounded-xl border border-dashed border-cocoa-300 px-3 py-2 text-[12.5px] font-semibold text-cocoa-700 transition hover:border-caramel-400 hover:bg-cream disabled:opacity-60"
+        >
+          {planning ? "Planning…" : "Plan this for today"}
+        </button>
+      )}
+
+      <div className="mt-auto flex gap-2 pt-3">
         <Button size="sm" onClick={onStart} loading={busy} className="flex-1">
           Start
         </Button>

@@ -183,6 +183,13 @@ export interface DraftItem {
   foodId?: string | null;
   isEstimate?: boolean;
   confidence?: number | null;
+  /**
+   * The food this line came from, kept whole so saving preserves its barcode
+   * and provider id. Without it a scanned product is stored as an anonymous
+   * copy, which both loses the offline match on the next scan and creates a
+   * duplicate row every time the same item is logged.
+   */
+  food?: FoodResult | null;
 }
 
 export interface PhotoCandidate {

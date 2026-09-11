@@ -12,6 +12,8 @@ export interface PlainExercise {
 
 export interface PlainWorkoutExercise {
   id: string;
+  /** The underlying Exercise, so the editor never has to match on name. */
+  exerciseId: string;
   name: string;
   muscleGroups: string[];
   targetSets: number | null;

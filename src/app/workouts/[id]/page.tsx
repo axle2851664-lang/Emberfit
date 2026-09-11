@@ -35,6 +35,7 @@ export default async function EditWorkoutPage({ params }: { params: Promise<{ id
         updatedAt: workout.updatedAt.toISOString(),
         exercises: workout.exercises.map((we) => ({
           id: we.id,
+          exerciseId: we.exerciseId,
           name: we.exercise.name,
           muscleGroups: parseList(we.exercise.muscleGroups),
           targetSets: we.targetSets,

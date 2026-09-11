@@ -257,11 +257,29 @@ function MealCard({
               {meal.items.length === 1 ? "" : "s"}
             </p>
           </div>
-          <button
-            onClick={onDelete}
-            aria-label={`Remove ${meal.name}`}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-cocoa-300 transition hover:bg-red-50 hover:text-red-600"
-          >
+          <div className="flex shrink-0 items-center gap-0.5">
+            <Link
+              href={`/food/add?edit=${meal.id}`}
+              aria-label={`Edit ${meal.name}`}
+              title="Edit"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-cocoa-300 transition hover:bg-cocoa-100 hover:text-cocoa-700"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+                <path
+                  d="M11.3 2.7a1.5 1.5 0 0 1 2 2L6 12l-3 1 1-3 7.3-7.3z"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </Link>
+            <button
+              onClick={onDelete}
+              aria-label={`Remove ${meal.name}`}
+              title="Remove"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-cocoa-300 transition hover:bg-red-50 hover:text-red-600"
+            >
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
               <path
                 d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4"
@@ -271,7 +289,8 @@ function MealCard({
                 strokeLinejoin="round"
               />
             </svg>
-          </button>
+            </button>
+          </div>
         </div>
 
         <div className="mt-3.5">

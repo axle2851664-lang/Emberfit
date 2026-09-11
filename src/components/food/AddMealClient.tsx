@@ -6,8 +6,9 @@ import { motion } from "framer-motion";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { ErrorState, LoadingCard } from "@/components/ui/States";
 import { useToast } from "@/components/ui/Toast";
-import { apiPost } from "@/lib/client";
+import { apiGet, apiPost, apiPut } from "@/lib/client";
 import { toGrams } from "@/lib/utils";
 import type { DraftItem, FoodResult, MealSlot, PhotoCandidate } from "@/lib/types";
 import { EMPTY_NUTRIENTS } from "@/lib/types";
@@ -44,11 +45,16 @@ export function AddMealClient() {
   const params = useSearchParams();
   const toast = useToast();
 
+  // ?edit=<id> reuses this whole screen to change a meal already in the
+  // journal, rather than duplicating the review UI somewhere else.
+  const editId = params.get("edit");
   const initialMode = (params.get("mode") as Mode) || "photo";
   const [mode, setMode] = useState<Mode>(
     MODES.some((m) => m.key === initialMode) ? initialMode : "photo",
   );
-  const [step, setStep] = useState<Step>("capture");
+  const [step, setStep] = useState<Step>(editId ? "review" : "capture");
+  const [loadingMeal, setLoadingMeal] = useState(Boolean(editId));
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [items, setItems] = useState<DraftItem[]>([]);
   const [mealName, setMealName] = useState("");
@@ -87,6 +93,8 @@ export function AddMealClient() {
         foodId: food.id ?? null,
         isEstimate: food.isEstimate ?? false,
         confidence: food.confidence ?? null,
+        // Kept whole so the barcode and provider id survive the save.
+        food,
       },
     ]);
     setMealName((current) => current || food.name);
@@ -194,21 +202,19 @@ export function AddMealClient() {
     }
 
     setSaving(true);
-    const res = await apiPost<{ id: string }>("/api/meals", {
+    const payload = {
       name: mealName.trim(),
       slot,
       entryMethod,
       notes: notes.trim() || null,
       items: items.map((item) => ({
         ...item,
-        food:
-          item.foodId
-            ? null
-            : {
-                name: item.name,
-                source: entryMethod === "barcode" ? "openfoodfacts" : "user",
-                per100: item.per100,
-              },
+        // Prefer the real food record (barcode, provider id and all). Items
+        // that never came from one — photo candidates, recipe ingredients —
+        // still get saved so they're searchable next time.
+        food: item.foodId
+          ? null
+          : (item.food ?? { name: item.name, source: "user" as const, per100: item.per100 }),
       })),
       servings,
       servingsEaten,
@@ -216,7 +222,11 @@ export function AddMealClient() {
       isEstimate,
       estimateNote,
       confidence,
-    });
+    };
+
+    const res = editId
+      ? await apiPut<{ id: string }>(`/api/meals/${editId}`, payload)
+      : await apiPost<{ id: string }>("/api/meals", payload);
     setSaving(false);
 
     if (!res.ok) {
@@ -224,29 +234,148 @@ export function AddMealClient() {
       return;
     }
 
-    toast.success("Meal saved", "You can edit or remove it any time from your food journal.");
+    toast.success(
+      editId ? "Meal updated" : "Meal saved",
+      editId ? undefined : "You can edit or remove it any time from your food journal.",
+    );
     router.push("/food");
     router.refresh();
   };
 
   // Keep the URL honest when the mode changes, so back/forward behave.
   useEffect(() => {
+    if (editId) return; // editing keeps whatever method the meal was logged with
     setEntryMethod(mode);
-  }, [mode]);
+  }, [mode, editId]);
+
+  // Load the meal being edited into the same draft the other paths produce.
+  useEffect(() => {
+    if (!editId) return;
+    let cancelled = false;
+
+    apiGet<{
+      id: string;
+      name: string;
+      slot: MealSlot;
+      entryMethod: string;
+      notes: string | null;
+      servings: number;
+      servingsEaten: number;
+      cookingMethod: string | null;
+      isEstimate: boolean;
+      estimateNote: string | null;
+      confidence: number | null;
+      items: Array<{
+        id: string;
+        foodId: string | null;
+        name: string;
+        quantity: number;
+        unit: string;
+        grams: number;
+        calories: number;
+        protein: number;
+        carbs: number;
+        fat: number;
+        fiber: number | null;
+        sugar: number | null;
+        satFat: number | null;
+        sodium: number | null;
+        isEstimate: boolean;
+        confidence: number | null;
+      }>;
+    }>(`/api/meals/${editId}`).then((res) => {
+      if (cancelled) return;
+      setLoadingMeal(false);
+
+      if (!res.ok) {
+        setLoadError(res.error.message);
+        return;
+      }
+
+      const meal = res.data;
+      setMealName(meal.name);
+      setSlot(meal.slot);
+      setNotes(meal.notes ?? "");
+      setEntryMethod((meal.entryMethod as Mode) ?? "manual");
+      setServings(meal.servings);
+      setServingsEaten(meal.servingsEaten);
+      setCookingMethod(meal.cookingMethod);
+      setEstimateNote(meal.estimateNote);
+      setConfidence(meal.confidence);
+
+      // Stored items hold absolute values for the portion eaten; the editor
+      // works in per-100 g, so convert back.
+      setItems(
+        meal.items.map((item) => {
+          const grams = item.grams > 0 ? item.grams : 100;
+          const per = (value: number | null) =>
+            value == null ? null : (value * 100) / grams;
+          return {
+            key: nextKey(),
+            name: item.name,
+            quantity: item.quantity,
+            unit: item.unit,
+            grams,
+            per100: {
+              calories: (item.calories * 100) / grams,
+              protein: (item.protein * 100) / grams,
+              carbs: (item.carbs * 100) / grams,
+              fat: (item.fat * 100) / grams,
+              fiber: per(item.fiber),
+              sugar: per(item.sugar),
+              satFat: per(item.satFat),
+              sodium: per(item.sodium),
+            },
+            foodId: item.foodId,
+            isEstimate: item.isEstimate,
+            confidence: item.confidence,
+          };
+        }),
+      );
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editId]);
 
   // --- Render ---------------------------------------------------------------
+
+  if (loadingMeal) {
+    return (
+      <div className="mx-auto max-w-2xl">
+        <LoadingCard lines={6} />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="mx-auto max-w-2xl">
+        <ErrorState
+          title="Couldn't open that meal"
+          message={loadError}
+          hint="It may have been deleted. Your journal is still intact."
+          onRetry={() => router.push("/food")}
+          retryLabel="Back to the journal"
+        />
+      </div>
+    );
+  }
 
   if (step === "review") {
     return (
       <div className="mx-auto max-w-2xl space-y-5">
         <header>
           <button
-            onClick={() => setStep("capture")}
+            onClick={() => (editId ? router.push("/food") : setStep("capture"))}
             className="text-[13px] font-semibold text-caramel-700 hover:text-caramel-800"
           >
             ← Back
           </button>
-          <h1 className="heading mt-2 text-3xl font-semibold">Check before saving</h1>
+          <h1 className="heading mt-2 text-3xl font-semibold">
+            {editId ? "Edit this meal" : "Check before saving"}
+          </h1>
           <p className="mt-1 text-sm text-cocoa-600">
             Fix anything that isn&rsquo;t right — names, amounts, or what&rsquo;s in the meal.
           </p>
@@ -266,6 +395,7 @@ export function AddMealClient() {
             estimateNote={isEstimate ? estimateNote : null}
             onSave={save}
             saving={saving}
+            saveLabel={editId ? "Save changes" : "Save meal"}
             onAddMore={() => setAddMoreOpen(true)}
             extra={
               entryMethod === "homemade" ? (

@@ -269,3 +269,53 @@ test("parseList survives malformed JSON", () => {
 test("stringifyList de-duplicates", () => {
   assert.equal(stringifyList(["a", "a", "b"]), '["a","b"]');
 });
+
+// --- Meal editing round trip ------------------------------------------------
+// The edit screen converts stored per-portion totals back to per-100 g values.
+// If that conversion drifted, simply opening and saving a meal would quietly
+// change what you ate.
+
+test("per-100 g conversion survives an edit round trip", () => {
+  const grams = 33;
+  const per100 = { calories: 143, protein: 12.6, carbs: 0.7, fat: 9.5, fiber: 1.3, sugar: 0.4, satFat: 3.1, sodium: 142 };
+
+  // Save -> stored absolute values.
+  const stored = scaleNutrients(per100, grams);
+
+  // Edit screen converts back to per 100 g...
+  const reopened = {
+    calories: (stored.calories * 100) / grams,
+    protein: (stored.protein * 100) / grams,
+    carbs: (stored.carbs * 100) / grams,
+    fat: (stored.fat * 100) / grams,
+    fiber: ((stored.fiber ?? 0) * 100) / grams,
+    sugar: ((stored.sugar ?? 0) * 100) / grams,
+    satFat: ((stored.satFat ?? 0) * 100) / grams,
+    sodium: ((stored.sodium ?? 0) * 100) / grams,
+  };
+
+  // ...and saving again must land on exactly the same stored values.
+  const resaved = scaleNutrients(reopened, grams);
+  assert.deepEqual(resaved, stored);
+});
+
+test("edit round trip is stable across repeated saves", () => {
+  const grams = 47.5;
+  let current = scaleNutrients({ calories: 217, protein: 3.4, carbs: 23.6, fat: 11.2, fiber: 0.7, sugar: 21.2, satFat: 6.8, sodium: 80 }, grams);
+
+  for (let i = 0; i < 5; i++) {
+    const back = {
+      calories: (current.calories * 100) / grams,
+      protein: (current.protein * 100) / grams,
+      carbs: (current.carbs * 100) / grams,
+      fat: (current.fat * 100) / grams,
+      fiber: ((current.fiber ?? 0) * 100) / grams,
+      sugar: ((current.sugar ?? 0) * 100) / grams,
+      satFat: ((current.satFat ?? 0) * 100) / grams,
+      sodium: ((current.sodium ?? 0) * 100) / grams,
+    };
+    const next = scaleNutrients(back, grams);
+    assert.deepEqual(next, current, `drifted on pass ${i + 1}`);
+    current = next;
+  }
+});

@@ -34,6 +34,7 @@ export default async function WorkoutsPage() {
     updatedAt: w.updatedAt.toISOString(),
     exercises: w.exercises.map((we) => ({
       id: we.id,
+      exerciseId: we.exerciseId,
       name: we.exercise.name,
       muscleGroups: parseList(we.exercise.muscleGroups),
       targetSets: we.targetSets,

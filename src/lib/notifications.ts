@@ -93,22 +93,34 @@ export async function maybeRemind(options: {
 }): Promise<void> {
   if (!options.enabled || notificationSupport() !== "granted") return;
 
-  const today = new Date().toISOString().slice(0, 10);
+  // Local calendar day, matching how the app groups everything else. An ISO
+  // string would roll over at UTC midnight, which is the middle of the evening
+  // for some people — exactly when these fire.
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const key = `${REMINDER_KEY}:${options.kind}`;
 
   try {
     if (localStorage.getItem(key) === today) return;
-    localStorage.setItem(key, today);
   } catch {
     // Without storage we can't tell whether we've already nudged today, so
     // stay quiet rather than risk repeating.
     return;
   }
 
-  await showLocalNotification({
+  const shown = await showLocalNotification({
     title: options.title,
     body: options.body,
     url: options.url,
     tag: `emberfit-${options.kind}`,
   });
+
+  // Record it only once it actually appeared, so a failure doesn't silently
+  // consume today's single reminder.
+  if (!shown) return;
+  try {
+    localStorage.setItem(key, today);
+  } catch {
+    /* nothing to record it in; it may repeat, which is the safer failure */
+  }
 }

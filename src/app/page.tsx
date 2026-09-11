@@ -10,6 +10,7 @@ import { MacroBar, NutritionSummary, EstimateBadge } from "@/components/ui/Nutri
 import { StatTile } from "@/components/charts/Charts";
 import { EmptyState } from "@/components/ui/States";
 import { QuickActions } from "@/components/QuickActions";
+import { DailyReminders } from "@/components/pwa/DailyReminders";
 import { TodaysWorkoutCard } from "@/components/workout/TodaysWorkoutCard";
 import { RecommendationCard } from "@/components/workout/RecommendationCard";
 import { MEAL_SLOT_LABELS, type MealSlot } from "@/lib/types";
@@ -72,6 +73,14 @@ export default async function DashboardPage() {
       </header>
 
       <QuickActions hasActiveSession={Boolean(activeSession)} activeSessionId={activeSession?.id} />
+
+      <DailyReminders
+        workoutRemindersOn={user.profile?.notifyWorkoutReminders ?? false}
+        mealRemindersOn={user.profile?.notifyMealReminders ?? false}
+        hasPlannedWorkout={Boolean(todaysWorkout)}
+        workoutDone={Boolean(todaysWorkout?.completed)}
+        mealsLogged={summary.mealCount}
+      />
 
       <div className="grid gap-5 lg:grid-cols-3">
         {/* Left column ---------------------------------------------------- */}
