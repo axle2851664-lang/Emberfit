@@ -169,6 +169,35 @@ Every route returns the same envelope (`{ ok: true, data }` or
 `{ ok: false, error: { code, message, hint } }`), so the client has exactly one
 error shape to render, and every failure carries a suggested next step.
 
+## Using it on your phone
+
+There's no hosted version — your phone needs to reach the same server running
+on your computer. Two options, depending on how much you want:
+
+**Same Wi-Fi (covers almost everything).** Start the server (`npm run dev` or
+`npm start`) and look at the terminal — alongside `Local: http://localhost:3000`
+it also prints a `Network:` line with an address like `http://192.168.1.23:3000`.
+Connect your phone to the *same* Wi-Fi network (not a guest network — those
+usually isolate devices from each other) and open that address in its browser.
+On Windows, the first run may trigger a firewall prompt; allow it on private
+networks. From there, Add to Home Screen works exactly as below.
+
+This covers workouts, all four food-logging paths, history and profile
+normally — including taking food photos, since that always uses the phone's
+native camera app rather than the browser. Two things degrade gracefully
+instead of working fully: the **live barcode camera viewfinder** needs a
+secure connection that a plain local IP doesn't have, so it'll show a
+permission error — "scan from photo" and manual entry both still work; and
+**notifications** won't turn on (Profile explains why if you try).
+
+**Full functionality, including the live scanner.** Both of those need a real
+`https://` address. The quickest way with no account or certificate setup:
+grab [`cloudflared`](https://github.com/cloudflare/cloudflared/releases), run
+`cloudflared tunnel --url http://localhost:3000` alongside your normal server,
+and open the `https://something.trycloudflare.com` address it prints instead.
+That URL is temporary and points straight at your machine with nothing in
+front of it, so treat it as personal, not something to share around.
+
 ## Installing it as an app
 
 EmberFit is a progressive web app, so it installs to a phone, tablet or desktop
