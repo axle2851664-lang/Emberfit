@@ -191,12 +191,24 @@ permission error — "scan from photo" and manual entry both still work; and
 **notifications** won't turn on (Profile explains why if you try).
 
 **Full functionality, including the live scanner.** Both of those need a real
-`https://` address. The quickest way with no account or certificate setup:
-grab [`cloudflared`](https://github.com/cloudflare/cloudflared/releases), run
-`cloudflared tunnel --url http://localhost:3000` alongside your normal server,
-and open the `https://something.trycloudflare.com` address it prints instead.
-That URL is temporary and points straight at your machine with nothing in
-front of it, so treat it as personal, not something to share around.
+`https://` address. Two ways to get one, in order of how much setup they take:
+
+- **[`cloudflared`](https://github.com/cloudflare/cloudflared/releases) quick
+  tunnel** — no account, one command: `cloudflared tunnel --url
+  http://localhost:3000`, then use the `https://something.trycloudflare.com`
+  address it prints. Only works while that command is running, and the address
+  changes every time.
+- **[Tailscale](https://tailscale.com)** — a bit more setup (install it on both
+  the computer and the phone, signed into the same free account), but the
+  result is a stable address that works from anywhere, not just your home
+  Wi-Fi, with a real trusted certificate. Turn on **HTTPS Certificates** under
+  [DNS settings](https://login.tailscale.com/admin/dns) in the admin console,
+  then run `tailscale serve https / http://localhost:3000` (the exact syntax
+  has changed across Tailscale versions — `tailscale serve --help` shows
+  yours) and open the `https://<device>.<tailnet>.ts.net` address it gives you.
+  Use `serve`, not `funnel`: **`funnel` puts the app on the open internet**,
+  and it has no login of any kind, so anyone with the link could see and edit
+  everything in it. `serve` keeps it private to your own Tailscale devices.
 
 ## Installing it as an app
 
