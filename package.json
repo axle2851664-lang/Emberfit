@@ -12,10 +12,11 @@
     "setup": "prisma generate && prisma db push && npm run db:seed",
     "test": "tsx --test tests/selftest.ts",
     "ensure-env": "node scripts/ensure-env.mjs",
-    "predev": "node scripts/ensure-env.mjs && node scripts/ensure-db.mjs",
-    "prebuild": "node scripts/ensure-env.mjs",
-    "presetup": "node scripts/ensure-env.mjs",
-    "prestart": "node scripts/ensure-env.mjs && node scripts/ensure-db.mjs"
+    "predev": "node scripts/ensure-env.mjs && node scripts/ensure-wasm.mjs && node scripts/ensure-db.mjs",
+    "prebuild": "node scripts/ensure-env.mjs && node scripts/ensure-wasm.mjs",
+    "presetup": "node scripts/ensure-env.mjs && node scripts/ensure-wasm.mjs",
+    "prestart": "node scripts/ensure-env.mjs && node scripts/ensure-wasm.mjs && node scripts/ensure-db.mjs",
+    "ensure-wasm": "node scripts/ensure-wasm.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.1.0",

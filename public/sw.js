@@ -89,7 +89,10 @@ function isStaticAsset(url) {
     url.pathname.startsWith("/_next/static/") ||
     url.pathname.startsWith("/icons/") ||
     url.pathname.startsWith("/splash/") ||
-    /\.(?:css|js|woff2?|png|jpe?g|svg|webp|ico)$/.test(url.pathname)
+    // The barcode decoder's wasm: ~900 KB, versioned with the build, and
+    // needed before a scan can work at all — exactly what caching is for.
+    url.pathname.startsWith("/zxing/") ||
+    /\.(?:css|js|wasm|woff2?|png|jpe?g|svg|webp|ico)$/.test(url.pathname)
   );
 }
 

@@ -60,6 +60,30 @@ async function getZxingReader() {
   if (zxingReader !== undefined) return zxingReader;
   try {
     const mod: any = await import("zxing-wasm/reader");
+
+    // Serve the decoder's WebAssembly from this app, not from a CDN.
+    //
+    // Left to itself, zxing-wasm fetches the binary from jsDelivr on first
+    // use. iOS Safari has no native BarcodeDetector, so zxing is the only
+    // decoder there — meaning barcode scanning on iPhone silently did nothing
+    // whenever that CDN wasn't reachable, and it quietly contradicted the
+    // promise that this app doesn't phone anywhere. scripts/ensure-wasm.mjs
+    // puts the file in public/zxing for us.
+    mod.setZXingModuleOverrides({
+      locateFile: (path: string, prefix: string) =>
+        path.endsWith(".wasm") ? `/zxing/${path}` : prefix + path,
+    });
+
+    // Actually instantiate the module rather than assuming it will work.
+    // Importing the JS succeeds even when the WebAssembly behind it can't
+    // load, and the failure only surfaces on the first decode — which made
+    // "is a decoder available?" answer yes when it wasn't, and the scanner
+    // then blamed the photo for a problem the photo never had.
+    //
+    // This only runs where zxing is genuinely needed: browsers with a native
+    // BarcodeDetector never reach here.
+    await mod.getZXingModule();
+
     zxingReader = async (imageData: ImageData) => {
       const results = await mod.readBarcodesFromImageData(imageData, {
         tryHarder: true,
@@ -80,6 +104,24 @@ async function getZxingReader() {
 export async function decoderAvailable(): Promise<boolean> {
   if (await getNativeDetector()) return true;
   return Boolean(await getZxingReader());
+}
+
+/**
+ * Why scanning can't run, if it can't.
+ *
+ * "insecure" is the common one in practice: the live camera needs a secure
+ * page, so opening the app over a plain http:// address on a local IP fails
+ * here even though everything else works. Worth naming exactly, because the
+ * remedy is completely different from "try a better photo".
+ */
+export type ScanBlocker = "none" | "insecure" | "no-decoder" | "no-camera";
+
+export async function cameraBlocker(): Promise<ScanBlocker> {
+  if (typeof window === "undefined") return "no-camera";
+  if (!(await decoderAvailable())) return "no-decoder";
+  if (!window.isSecureContext) return "insecure";
+  if (!navigator.mediaDevices?.getUserMedia) return "no-camera";
+  return "none";
 }
 
 /** Try to read a code from a video frame or an image. */

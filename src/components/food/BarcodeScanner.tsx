@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/States";
 import { apiPost } from "@/lib/client";
-import { decodeFrom, decoderAvailable, looksLikeBarcode } from "@/lib/barcodeDecoder";
+import { cameraBlocker, decodeFrom, looksLikeBarcode, type ScanBlocker } from "@/lib/barcodeDecoder";
 import type { FoodResult, ServiceError } from "@/lib/types";
 
 interface ScanOutcome {
@@ -17,6 +17,22 @@ interface ScanOutcome {
 }
 
 type Phase = "idle" | "scanning" | "looking_up" | "result";
+
+/**
+ * Each of these has a different remedy, so they get different words. The
+ * insecure-page one matters most in practice: everything else in the app works
+ * fine over a plain http:// address on a home network, and only the live
+ * camera doesn't — which is baffling unless you say so.
+ */
+const BLOCKER_MESSAGE: Record<ScanBlocker, string> = {
+  none: "",
+  insecure:
+    "The live camera needs a secure (https) page, and this one isn't. Scanning from a photo and typing the number both still work — or reach the app over https to use the camera.",
+  "no-decoder":
+    "The barcode decoder couldn't load, so scanning is unavailable right now. Typing the number below works exactly the same way.",
+  "no-camera":
+    "No camera is available to this browser. Scanning from a photo and typing the number both still work.",
+};
 
 /**
  * Live barcode / QR scanning with three escape hatches: upload a photo of the
@@ -39,13 +55,13 @@ export function BarcodeScanner({
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [supported, setSupported] = useState<boolean | null>(null);
+  const [blocker, setBlocker] = useState<ScanBlocker | null>(null);
   const [outcome, setOutcome] = useState<ScanOutcome | null>(null);
   const [error, setError] = useState<ServiceError | null>(null);
   const [manualCode, setManualCode] = useState("");
 
   useEffect(() => {
-    decoderAvailable().then(setSupported);
+    cameraBlocker().then(setBlocker);
     return () => stopCamera();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -86,8 +102,10 @@ export function BarcodeScanner({
     setOutcome(null);
     setPhase("scanning");
 
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setCameraError("This browser can't open the camera.");
+    const why = await cameraBlocker();
+    if (why !== "none") {
+      setBlocker(why);
+      setCameraError(BLOCKER_MESSAGE[why]);
       setPhase("idle");
       return;
     }
@@ -153,8 +171,14 @@ export function BarcodeScanner({
       const hit = await decodeFrom(img);
       if (!hit) {
         setPhase("idle");
+        // Distinguish "nothing in this picture" from "we can't decode at all" —
+        // otherwise people retake photos to fix a problem that isn't the photo.
+        const why = await cameraBlocker();
+        setBlocker(why);
         setCameraError(
-          "No barcode was found in that image. Try a straight-on shot where the bars fill the frame — or type the number below.",
+          why === "no-decoder"
+            ? BLOCKER_MESSAGE["no-decoder"]
+            : "No barcode was found in that image. Try a straight-on shot where the bars fill the frame — or type the number below.",
         );
         return;
       }
@@ -257,8 +281,12 @@ export function BarcodeScanner({
         </Button>
       ) : phase !== "looking_up" ? (
         <div className="flex gap-2.5">
-          <Button className="flex-1" onClick={startCamera} disabled={supported === false}>
-            {supported === false ? "Scanning unsupported" : "Open camera"}
+          <Button
+            className="flex-1"
+            onClick={startCamera}
+            disabled={Boolean(blocker && blocker !== "none")}
+          >
+            {blocker && blocker !== "none" ? "Camera unavailable" : "Open camera"}
           </Button>
           <label className="flex-1">
             <input
@@ -274,10 +302,9 @@ export function BarcodeScanner({
         </div>
       ) : null}
 
-      {supported === false && (
+      {blocker && blocker !== "none" && (
         <p className="rounded-xl bg-cocoa-50 px-3.5 py-2.5 text-[12.5px] leading-relaxed text-cocoa-600">
-          This browser can&rsquo;t decode barcodes. Typing the number below works exactly the same
-          way.
+          {BLOCKER_MESSAGE[blocker]}
         </p>
       )}
 

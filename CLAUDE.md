@@ -53,6 +53,21 @@
   Keep splash backgrounds flat — a full-screen gradient at 2048x2732 costs
   megabytes in PNG, a flat field costs almost nothing (6.1 MB down to 584 KB).
 
+## Barcode decoding
+- zxing-wasm fetches its WebAssembly from jsDelivr unless told otherwise. It is
+  overridden to `/zxing/`, populated by `scripts/ensure-wasm.mjs` from
+  node_modules. Don't remove that: iOS Safari has no native BarcodeDetector, so
+  zxing is the only decoder there, and a CDN that isn't reachable meant barcode
+  scanning silently did nothing on iPhone.
+- Importing the module succeeds even when its wasm can't load — the failure
+  only surfaces on first decode. `getZxingReader()` therefore awaits
+  `getZXingModule()` so availability checks are truthful; otherwise the scanner
+  blames the photo for a decoder problem.
+- `cameraBlocker()` separates "insecure page", "no decoder" and "no camera",
+  because the remedies differ. The insecure-page case is the common one: the
+  live camera needs https, which a plain http:// LAN address isn't, even though
+  the rest of the app works fine there.
+
 ## Testing
 `npm test` runs pure-logic tests. The browser flows were verified with
 Playwright against a production build: workout creation → live session → set

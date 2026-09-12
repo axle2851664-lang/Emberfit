@@ -257,6 +257,8 @@ saved:
 
 - Food photos are analysed in memory and never written to disk.
 - Barcode lookups send only the product number.
+- The barcode decoder runs entirely on your device, and its WebAssembly is
+  served from this app rather than a CDN, so scanning contacts nobody.
 - Everything else stays in your database.
 - Any meal or workout session can be permanently deleted from the UI.
 - No weight, body measurements, calorie targets, location or contacts are
