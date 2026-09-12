@@ -10,7 +10,7 @@ import { ErrorState, LoadingCard } from "@/components/ui/States";
 import { useToast } from "@/components/ui/Toast";
 import { apiGet, apiPost, apiPut } from "@/lib/client";
 import { toGrams } from "@/lib/utils";
-import type { DraftItem, FoodResult, MealSlot, PhotoCandidate } from "@/lib/types";
+import type { DraftItem, FoodQuality, FoodResult, MealSlot, PhotoCandidate } from "@/lib/types";
 import { EMPTY_NUTRIENTS } from "@/lib/types";
 import type { RecipeEstimate } from "@/lib/services/recipeService";
 import { PhotoScanner } from "./PhotoScanner";
@@ -18,6 +18,7 @@ import { BarcodeScanner } from "./BarcodeScanner";
 import { HomeCookedForm } from "./HomeCookedForm";
 import { FoodSearchPanel, ManualFoodForm } from "./FoodSearchPanel";
 import { DraftReview } from "./MealDraft";
+import { FoodQualityPanel } from "./FoodQuality";
 
 type Mode = "photo" | "barcode" | "homemade" | "search";
 type Step = "capture" | "review";
@@ -67,6 +68,9 @@ export function AddMealClient() {
   const [servingsEaten, setServingsEaten] = useState(1);
   const [cookingMethod, setCookingMethod] = useState<string | null>(null);
 
+  // Quality belongs to the product, not the portion, so it rides alongside the
+  // draft rather than inside a line item.
+  const [quality, setQuality] = useState<FoodQuality | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
   const [addMoreOpen, setAddMoreOpen] = useState(false);
   const [searchSeed, setSearchSeed] = useState("");
@@ -136,6 +140,7 @@ export function AddMealClient() {
 
   const fromBarcode = (food: FoodResult) => {
     addFood(food, food.servingGrams ?? 100);
+    setQuality(food.quality ?? null);
     setEntryMethod("barcode");
     setMealName(food.name);
     setEstimateNote(
@@ -178,6 +183,7 @@ export function AddMealClient() {
 
   const fromSearch = (food: FoodResult) => {
     addFood(food);
+    if (food.quality) setQuality(food.quality);
     setEntryMethod((current) => (current === "search" ? "search" : current));
     if (items.length === 0) {
       setEstimateNote(
@@ -398,7 +404,9 @@ export function AddMealClient() {
             saveLabel={editId ? "Save changes" : "Save meal"}
             onAddMore={() => setAddMoreOpen(true)}
             extra={
-              entryMethod === "homemade" ? (
+              quality ? (
+                <FoodQualityPanel quality={quality} />
+              ) : entryMethod === "homemade" ? (
                 <div className="rounded-xl bg-cream/80 px-3.5 py-2.5 text-[12.5px] text-cocoa-600">
                   Amounts below are already scaled to the {servingsEaten} serving
                   {servingsEaten === 1 ? "" : "s"} you ate out of {servings}.

@@ -156,6 +156,51 @@ export const EMPTY_NUTRIENTS: Nutrients = {
   sodium: 0,
 };
 
+/**
+ * Published quality signals for a packaged product.
+ *
+ * These are deliberately other people's measures, recorded as published:
+ * Nutri-Score is the official EU front-of-pack label, NOVA is the established
+ * food-processing classification, and the additives are simply what's on the
+ * label. EmberFit doesn't blend them into a score of its own — a single
+ * invented number would look far more authoritative than it deserves to.
+ */
+export interface FoodQuality {
+  /** Nutri-Score grade, "a" (best) to "e". */
+  nutriScore?: string | null;
+  /** NOVA group: 1 unprocessed, 4 ultra-processed. */
+  novaGroup?: number | null;
+  /** Eco-Score grade, "a" to "e", where published. */
+  ecoScore?: string | null;
+  /** Additives on the label, as E-numbers. */
+  additives?: string[];
+  /** Carries an official organic certification. */
+  isOrganic?: boolean;
+}
+
+export const NUTRI_SCORE_LABELS: Record<string, string> = {
+  a: "Excellent nutritional quality",
+  b: "Good nutritional quality",
+  c: "Average nutritional quality",
+  d: "Poor nutritional quality",
+  e: "Low nutritional quality",
+};
+
+export const NOVA_LABELS: Record<number, string> = {
+  1: "Unprocessed or minimally processed",
+  2: "Processed culinary ingredient",
+  3: "Processed food",
+  4: "Ultra-processed food",
+};
+
+/** True when there's anything worth showing. */
+export function hasQuality(q: FoodQuality | null | undefined): boolean {
+  if (!q) return false;
+  return Boolean(
+    q.nutriScore || q.novaGroup || q.ecoScore || q.isOrganic || (q.additives?.length ?? 0) > 0,
+  );
+}
+
 /** A food as the UI sees it, independent of which provider produced it. */
 export interface FoodResult {
   id?: string;
@@ -170,6 +215,8 @@ export interface FoodResult {
   servingGrams?: number | null;
   isEstimate?: boolean;
   confidence?: number | null;
+  /** Published quality signals, where the provider has them. */
+  quality?: FoodQuality | null;
 }
 
 /** One line inside a meal being composed. */

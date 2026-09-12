@@ -3,7 +3,8 @@
  * export them just for tests, the mapping is mirrored here from the same
  * source file and kept in step by the tests that use it.
  */
-import type { FoodResult, Nutrients } from "../src/lib/types";
+import type { FoodQuality, FoodResult, Nutrients } from "../src/lib/types";
+import { hasQuality } from "../src/lib/types";
 
 function toNutrients(n: Record<string, unknown>): Nutrients | null {
   const num = (key: string): number | null => {
@@ -55,4 +56,33 @@ function toFoodResult(product: any): FoodResult | null {
   };
 }
 
-export const __testables = { toNutrients, toFoodResult };
+function toQuality(product: any): FoodQuality | null {
+  const grade = (value: unknown): string | null => {
+    const g = typeof value === "string" ? value.trim().toLowerCase() : "";
+    return /^[a-e]$/.test(g) ? g : null;
+  };
+
+  const tags: string[] = Array.isArray(product?.additives_tags) ? product.additives_tags : [];
+  const additives = tags
+    .map((tag) => String(tag).replace(/^[a-z]{2}:/, "").toUpperCase())
+    .filter((tag) => /^E\d{3,4}[A-Z]?$/.test(tag));
+
+  const labels: string[] = Array.isArray(product?.labels_tags) ? product.labels_tags : [];
+  const isOrganic = labels.some((tag) =>
+    /(^|:)(organic|bio|eu-organic|ab-agriculture-biologique)$/.test(String(tag)),
+  );
+
+  const nova = Number(product?.nova_group);
+
+  const quality: FoodQuality = {
+    nutriScore: grade(product?.nutriscore_grade),
+    novaGroup: Number.isInteger(nova) && nova >= 1 && nova <= 4 ? nova : null,
+    ecoScore: grade(product?.ecoscore_grade),
+    additives,
+    isOrganic,
+  };
+
+  return hasQuality(quality) ? quality : null;
+}
+
+export const __testables = { toNutrients, toFoodResult, toQuality };

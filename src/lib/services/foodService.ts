@@ -1,8 +1,9 @@
 import { prisma } from "../db";
 import { matchLocalFood, searchLocalFoods } from "../providers/localFoodProvider";
 import { searchProducts } from "../providers/openFoodFacts";
-import type { FoodResult, Nutrients, Result } from "../types";
-import { ok } from "../types";
+import type { FoodQuality, FoodResult, Nutrients, Result } from "../types";
+import { hasQuality, ok } from "../types";
+import { parseList } from "../utils";
 
 /**
  * FoodService — the single place the app asks "what is this food?".
@@ -11,6 +12,24 @@ import { ok } from "../types";
  * composition table, and the remote product database. Callers never talk to a
  * provider directly, so replacing Open Food Facts later touches one file.
  */
+
+/** Rebuild the published quality signals from a stored row. */
+export function rowQuality(row: {
+  nutriScore: string | null;
+  novaGroup: number | null;
+  ecoScore: string | null;
+  additives: string;
+  isOrganic: boolean;
+}): FoodQuality | null {
+  const quality: FoodQuality = {
+    nutriScore: row.nutriScore,
+    novaGroup: row.novaGroup,
+    ecoScore: row.ecoScore,
+    additives: parseList(row.additives),
+    isOrganic: row.isOrganic,
+  };
+  return hasQuality(quality) ? quality : null;
+}
 
 function nutritionToNutrients(n: {
   calories: number; protein: number; carbs: number; fat: number;
@@ -51,6 +70,7 @@ export async function searchSavedFoods(userId: string, query: string, limit = 10
       per100: nutritionToNutrients(row.nutrition!),
       servingLabel: row.servingLabel,
       servingGrams: row.servingGrams,
+      quality: rowQuality(row),
     }));
 }
 
@@ -136,6 +156,14 @@ export async function upsertFood(userId: string, food: FoodResult): Promise<stri
     sodium: food.per100.sodium ?? null,
   };
 
+  const qualityData = {
+    nutriScore: food.quality?.nutriScore ?? null,
+    novaGroup: food.quality?.novaGroup ?? null,
+    ecoScore: food.quality?.ecoScore ?? null,
+    additives: JSON.stringify(food.quality?.additives ?? []),
+    isOrganic: food.quality?.isOrganic ?? false,
+  };
+
   if (food.sourceId) {
     const existing = await prisma.food.findUnique({
       where: { source_sourceId: { source: food.source, sourceId: food.sourceId } },
@@ -149,6 +177,7 @@ export async function upsertFood(userId: string, food: FoodResult): Promise<stri
           barcode: food.barcode ?? null,
           servingLabel: food.servingLabel ?? null,
           servingGrams: food.servingGrams ?? null,
+          ...qualityData,
           nutrition: { upsert: { create: nutritionData, update: nutritionData } },
         },
       });
@@ -167,6 +196,7 @@ export async function upsertFood(userId: string, food: FoodResult): Promise<stri
       servingGrams: food.servingGrams ?? null,
       isVerified: food.source === "openfoodfacts",
       userId: food.source === "user" ? userId : null,
+      ...qualityData,
       nutrition: { create: nutritionData },
     },
   });

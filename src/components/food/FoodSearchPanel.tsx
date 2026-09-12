@@ -7,6 +7,7 @@ import { EmptyState, ErrorState, Skeleton } from "@/components/ui/States";
 import { Button } from "@/components/ui/Button";
 import { apiGet } from "@/lib/client";
 import type { FoodResult, ServiceError } from "@/lib/types";
+import { QualityChips } from "./FoodQuality";
 
 /**
  * Search across saved foods, the built-in composition table and the product
@@ -130,7 +131,12 @@ export function FoodSearchPanel({
                 className="flex w-full items-center gap-3 rounded-xl border border-cocoa-200/60 bg-white/70 px-3.5 py-3 text-left transition hover:border-caramel-300 hover:bg-white"
               >
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-cocoa-900">{food.name}</span>
+                  <span className="flex items-center gap-2">
+                    <span className="min-w-0 truncate text-sm font-medium text-cocoa-900">
+                      {food.name}
+                    </span>
+                    <QualityChips quality={food.quality} />
+                  </span>
                   <span className="block truncate text-[11.5px] text-cocoa-500">
                     {food.brand ? `${food.brand} · ` : ""}
                     {Math.round(food.per100.calories)} kcal · P {food.per100.protein}g · C{" "}

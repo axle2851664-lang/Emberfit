@@ -1,5 +1,5 @@
-import type { FoodResult, Nutrients, Result } from "../types";
-import { err, ok } from "../types";
+import type { FoodQuality, FoodResult, Nutrients, Result } from "../types";
+import { err, hasQuality, ok } from "../types";
 
 /**
  * Open Food Facts adapter.
@@ -87,6 +87,41 @@ function toNutrients(n: Record<string, unknown>): Nutrients | null {
   };
 }
 
+/**
+ * Pull out the published quality signals.
+ *
+ * Open Food Facts tags are namespaced ("en:e330", "en:organic"), so they need
+ * unwrapping. Everything here is recorded as published rather than
+ * interpreted — we show what the label says, not our opinion of it.
+ */
+function toQuality(product: any): FoodQuality | null {
+  const grade = (value: unknown): string | null => {
+    const g = typeof value === "string" ? value.trim().toLowerCase() : "";
+    // Open Food Facts uses "unknown"/"not-applicable" for missing grades.
+    return /^[a-e]$/.test(g) ? g : null;
+  };
+
+  const tags: string[] = Array.isArray(product?.additives_tags) ? product.additives_tags : [];
+  const additives = tags
+    .map((tag) => String(tag).replace(/^[a-z]{2}:/, "").toUpperCase())
+    .filter((tag) => /^E\d{3,4}[A-Z]?$/.test(tag));
+
+  const labels: string[] = Array.isArray(product?.labels_tags) ? product.labels_tags : [];
+  const isOrganic = labels.some((tag) => /(^|:)(organic|bio|eu-organic|ab-agriculture-biologique)$/.test(String(tag)));
+
+  const nova = Number(product?.nova_group);
+
+  const quality: FoodQuality = {
+    nutriScore: grade(product?.nutriscore_grade),
+    novaGroup: Number.isInteger(nova) && nova >= 1 && nova <= 4 ? nova : null,
+    ecoScore: grade(product?.ecoscore_grade),
+    additives,
+    isOrganic,
+  };
+
+  return hasQuality(quality) ? quality : null;
+}
+
 function toFoodResult(product: any): FoodResult | null {
   const per100 = toNutrients(product?.nutriments ?? {});
   if (!per100) return null;
@@ -109,6 +144,7 @@ function toFoodResult(product: any): FoodResult | null {
     per100,
     servingLabel: product.serving_size || null,
     servingGrams: Number.isFinite(servingGrams) && servingGrams > 0 ? servingGrams : null,
+    quality: toQuality(product),
   };
 }
 
@@ -119,7 +155,7 @@ export async function lookupBarcode(barcode: string): Promise<Result<FoodResult>
   }
 
   const res = await fetchJson(
-    `${BASE}/api/v2/product/${clean}.json?fields=code,product_name,product_name_en,generic_name,brands,serving_size,serving_quantity,nutriments`,
+    `${BASE}/api/v2/product/${clean}.json?fields=code,product_name,product_name_en,generic_name,brands,serving_size,serving_quantity,nutriments,nutriscore_grade,nova_group,ecoscore_grade,additives_tags,labels_tags`,
   );
   if (!res.ok) return res as Result<FoodResult>;
 
@@ -142,7 +178,7 @@ export async function searchProducts(query: string, limit = 15): Promise<Result<
   const url =
     `${BASE}/cgi/search.pl?search_terms=${encodeURIComponent(q)}` +
     `&search_simple=1&action=process&json=1&page_size=${limit}` +
-    `&fields=code,product_name,product_name_en,generic_name,brands,serving_size,serving_quantity,nutriments`;
+    `&fields=code,product_name,product_name_en,generic_name,brands,serving_size,serving_quantity,nutriments,nutriscore_grade,nova_group,ecoscore_grade,additives_tags,labels_tags`;
 
   const res = await fetchJson(url);
   if (!res.ok) return res as Result<FoodResult[]>;

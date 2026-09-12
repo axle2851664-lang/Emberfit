@@ -13,7 +13,7 @@ import { matchLocalFood, searchLocalFoods } from "../src/lib/providers/localFood
 import { dayKey, parseList, scaleNutrients, sumNutrients, toGrams, stringifyList } from "../src/lib/utils";
 import { FOOD_TABLE } from "../src/lib/data/foodTable";
 import { EXERCISE_LIBRARY } from "../src/lib/data/exerciseLibrary";
-import { MUSCLE_GROUPS, REGION_OF, type MuscleGroup } from "../src/lib/types";
+import { MUSCLE_GROUPS, REGION_OF, hasQuality, type MuscleGroup } from "../src/lib/types";
 
 // --- Barcode / QR decoding --------------------------------------------------
 
@@ -318,4 +318,56 @@ test("edit round trip is stable across repeated saves", () => {
     assert.deepEqual(next, current, `drifted on pass ${i + 1}`);
     current = next;
   }
+});
+
+// --- Product quality signals ------------------------------------------------
+// Parsed from Open Food Facts and shown as published. Pinned here because a
+// silent parsing change would put a wrong grade next to somebody's food.
+
+test("Open Food Facts quality fields are parsed as published", async () => {
+  const { __testables } = await import("./offFixture");
+  const q = __testables.toQuality({
+    nutriscore_grade: "d",
+    nova_group: 4,
+    ecoscore_grade: "c",
+    additives_tags: ["en:e322", "en:e476", "not-an-additive"],
+    labels_tags: ["en:organic", "en:fair-trade"],
+  });
+
+  assert.ok(q);
+  assert.equal(q!.nutriScore, "d");
+  assert.equal(q!.novaGroup, 4);
+  assert.equal(q!.ecoScore, "c");
+  assert.deepEqual(q!.additives, ["E322", "E476"]); // namespaced tags unwrapped
+  assert.equal(q!.isOrganic, true);
+});
+
+test("missing or unknown grades are dropped rather than shown wrong", async () => {
+  const { __testables } = await import("./offFixture");
+  const q = __testables.toQuality({
+    nutriscore_grade: "unknown",
+    ecoscore_grade: "not-applicable",
+    nova_group: 9, // out of the 1-4 range
+    additives_tags: [],
+    labels_tags: [],
+  });
+  // Nothing usable at all, so nothing is claimed.
+  assert.equal(q, null);
+});
+
+test("a product with only a nutri-score still reports quality", async () => {
+  const { __testables } = await import("./offFixture");
+  const q = __testables.toQuality({ nutriscore_grade: "a" });
+  assert.ok(q);
+  assert.equal(q!.nutriScore, "a");
+  assert.deepEqual(q!.additives, []);
+  assert.equal(q!.isOrganic, false);
+});
+
+test("hasQuality is false for an empty record", () => {
+  assert.equal(hasQuality(null), false);
+  assert.equal(hasQuality({}), false);
+  assert.equal(hasQuality({ additives: [] }), false);
+  assert.equal(hasQuality({ nutriScore: "b" }), true);
+  assert.equal(hasQuality({ isOrganic: true }), true);
 });

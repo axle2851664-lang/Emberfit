@@ -226,6 +226,20 @@ model Food {
 
   isVerified Boolean @default(false)
 
+  /// Product quality signals, as published by Open Food Facts. These are
+  /// other people's established measures, recorded verbatim — EmberFit does
+  /// not invent a score of its own on top of them.
+  /// Nutri-Score grade a-e (the official EU front-of-pack nutrition label).
+  nutriScore String?
+  /// NOVA food-processing group, 1 (unprocessed) to 4 (ultra-processed).
+  novaGroup  Int?
+  /// Eco-Score grade a-e, where the product has one.
+  ecoScore   String?
+  /// JSON array of additives found on the label, e.g. ["E330","E322"].
+  additives  String  @default("[]")
+  /// Carries an official organic certification label.
+  isOrganic  Boolean @default(false)
+
   userId String?
   user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
 

@@ -35,15 +35,30 @@ correct anything before saving:
    so no number is invented. Every result is labelled with a confidence and is
    editable.
 2. **Barcode / QR** — scans with the native `BarcodeDetector` where available
-   and falls back to `zxing-wasm`. Handles plain GTINs, product URLs, GS1
-   Digital Link and JSON payloads. If a code can't be read or found, you get
-   name search and manual entry rather than a dead end.
+   and falls back to `zxing-wasm`, served locally so scanning contacts nobody.
+   Handles plain GTINs, product URLs, GS1 Digital Link and JSON payloads. If a
+   code can't be read or found, you get name search and manual entry rather
+   than a dead end. Scanned products also show their published quality
+   signals — see below.
 3. **Home-cooked** — the important one. Enter ingredients and rough amounts,
    pick a cooking method and how many servings the recipe makes; nutrition is
    summed from the ingredients rather than guessed from the finished dish. It
    shows exactly which reference food each ingredient matched.
 4. **Search** — saved foods, a bundled composition table and the product
    database, merged and de-duplicated.
+
+**Product quality**
+Packaged products show the measures Open Food Facts publishes for them:
+Nutri-Score (the official EU front-of-pack nutrition label), NOVA processing
+group, any additives listed on the label, and organic certification. These are
+stored with the product, so an item you have scanned before still shows them with
+no connection.
+
+Deliberately no single blended score. Apps like Yuka combine these into one
+number, which is genuinely convenient, but their weighting is proprietary and
+one invented figure would read as far more authoritative than the inputs
+justify. Each signal is shown as published, attributed, and left for you to
+weigh.
 
 **Nutrition history**
 Meals grouped by day and by breakfast/lunch/dinner/snacks, with totals for

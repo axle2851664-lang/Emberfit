@@ -1,6 +1,7 @@
 import { prisma } from "../db";
 import { lookupBarcode } from "../providers/openFoodFacts";
 import { searchLocalFoods } from "../providers/localFoodProvider";
+import { rowQuality } from "./foodService";
 import type { FoodResult, Result } from "../types";
 import { err, ok } from "../types";
 
@@ -125,6 +126,8 @@ export async function resolveScan(
         },
         servingLabel: saved.servingLabel,
         servingGrams: saved.servingGrams,
+        // A product scanned before keeps its ratings, with no network needed.
+        quality: rowQuality(saved),
       };
       await recordScan(userId, decoded, true, "Matched a food you've logged before", food);
       return ok({ decoded, food, suggestions: [], message: null, hint: null });
